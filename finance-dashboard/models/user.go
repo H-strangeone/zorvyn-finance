@@ -10,21 +10,16 @@ const (
 	RoleAdmin   Role = "admin"
 )
 
-
 type User struct {
 	ID        string    `json:"id"`
 	Name      string    `json:"name"`
 	Email     string    `json:"email"`
-	Password  string    `json:"-"`         
-	                                    
-	                                    
-	                                        // json:"-" means this field is invisible to JSON encoder
+	Password  string    `json:"-"`
 	Role      Role      `json:"role"`
 	IsActive  bool      `json:"isActive"`
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
 }
-
 
 type UserResponse struct {
 	ID        string    `json:"id"`
