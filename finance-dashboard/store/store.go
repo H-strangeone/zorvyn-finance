@@ -19,6 +19,7 @@ type UserStore interface {
 	GetAll() []*models.User
 	Update(user *models.User) error
 	UpdateStatus(id string, isActive bool) error
+	HasActiveAdmin() bool
 }
 
 type TransactionStore interface {
@@ -27,6 +28,7 @@ type TransactionStore interface {
 	GetAll(filter models.TransactionFilter) ([]*models.Transaction, int)
 	Update(tx *models.Transaction) error
 	SoftDelete(id string) error
+	FetchAll() []*models.Transaction
 }
 
 type RoleRequestStore interface {

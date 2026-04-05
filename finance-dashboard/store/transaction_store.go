@@ -172,3 +172,15 @@ func isValidSort(s string) bool {
 	}
 	return false
 }
+func (s *InMemoryTransactionStore) FetchAll() []*models.Transaction {
+    s.mu.RLock()
+    defer s.mu.RUnlock()
+
+    var result []*models.Transaction
+    for _, tx := range s.transactions {
+        if !tx.IsDeleted {
+            result = append(result, tx)
+        }
+    }
+    return result
+}

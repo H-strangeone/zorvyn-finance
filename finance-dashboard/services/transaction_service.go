@@ -179,16 +179,15 @@ func (s *TransactionService) Delete(id string) *utils.AppError {
 	return nil
 }
 
-func parseDate(dateStr string) (time.Time, error) {
-	if dateStr == "" {
-		return time.Time{}, utils.NewValidationError("date is required")
-	}
-	if t, err := time.Parse(time.RFC3339, dateStr); err == nil {
-		return t.UTC(), nil
-	}
-	if t, err := time.Parse("2006-01-02", dateStr); err == nil {
-		return t.UTC(), nil
-	}
-
-	return time.Time{}, utils.NewValidationError("invalid date format")
+func parseDate(dateStr string) (time.Time, *utils.AppError) {
+    if dateStr == "" {
+        return time.Time{}, utils.NewValidationError("date is required")
+    }
+    if t, err := time.Parse(time.RFC3339, dateStr); err == nil {
+        return t.UTC(), nil
+    }
+    if t, err := time.Parse("2006-01-02", dateStr); err == nil {
+        return t.UTC(), nil
+    }
+    return time.Time{}, utils.NewValidationError("invalid date format, use YYYY-MM-DD or RFC3339")// Returns zero time on error — callers must check error before using time value
 }

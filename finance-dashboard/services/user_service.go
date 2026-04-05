@@ -169,6 +169,9 @@ func (s *UserService) UpdateStatus(id string, isActive bool) (*models.UserRespon
 }
 
 func (s *UserService) SeedAdmin(name, email, password string) error {
+	if s.userStore.HasActiveAdmin() {
+        return nil
+    }
 	concreteStore, ok := s.userStore.(*store.InMemoryUserStore)
 	if !ok {
 		return nil
