@@ -107,6 +107,11 @@ func (s *UserService) Create(input CreateUserInput) (*models.UserResponse, *util
 }
 
 func (s *UserService) Update(id string, input UpdateUserInput) (*models.UserResponse, *utils.AppError) {
+	if input.Name == "" && input.Email == "" && input.Role == "" {
+		return nil, utils.NewValidationError(
+			"at least one field must be provided for update",
+		)
+	}
 	if !utils.IsValidUUID(id) {
 		return nil, utils.NewValidationError("invalid user ID format")
 	}
@@ -144,11 +149,35 @@ func (s *UserService) Update(id string, input UpdateUserInput) (*models.UserResp
 	return &r, nil
 }
 
-func (s *UserService) UpdateStatus(id string, isActive bool) (*models.UserResponse, *utils.AppError) {
+func (s *UserService) UpdateStatus(id string, requestingAdminID string, isActive bool) (*models.UserResponse, *utils.AppError) {
 	if !utils.IsValidUUID(id) {
 		return nil, utils.NewValidationError("invalid user ID format")
 	}
-
+	if id == requestingAdminID && !isActive {
+        return nil, utils.NewValidationError("you cannot deactivate your own account")
+    }
+	if !isActive {
+    // check this won't remove the last active admin
+    user := s.userStore.GetByID(id)
+    if user.Role == models.RoleAdmin {
+        if !s.userStore.HasActiveAdmin() {
+            // this shouldn't happen but defensive
+        }
+        // count active admins
+        allUsers := s.userStore.GetAll()
+        activeAdminCount := 0
+        for _, u := range allUsers {
+            if u.Role == models.RoleAdmin && u.IsActive {
+                activeAdminCount++
+            }
+        }
+        if activeAdminCount <= 1 {
+            return nil, utils.NewValidationError(
+                "cannot deactivate the last active admin",
+            )
+        }
+    }
+}
 	user := s.userStore.GetByID(id)
 	if user == nil {
 		return nil, utils.NewNotFoundError("user")
@@ -168,24 +197,24 @@ func (s *UserService) UpdateStatus(id string, isActive bool) (*models.UserRespon
 	return &r, nil
 }
 
-func (s *UserService) SeedAdmin(name, email, password string) error {
+func (s *UserService) SeedAdmin(name, email, password string) (bool,error) {
 	if s.userStore.HasActiveAdmin() {
-        return nil
+        return false,nil
     }
 	concreteStore, ok := s.userStore.(*store.InMemoryUserStore)
 	if !ok {
-		return nil
+		return false,nil
 	}
 
 	if concreteStore.HasActiveAdmin() {
-		return nil // active admin exists, nothing to do
+		return false,nil // active admin exists, nothing to do
 	}
 
 	hashedPassword, err := bcrypt.GenerateFromPassword(
 		[]byte(password), 12,
 	)
 	if err != nil {
-		return err
+		return false,err
 	}
 
 	now := time.Now().UTC()
@@ -200,5 +229,13 @@ func (s *UserService) SeedAdmin(name, email, password string) error {
 		UpdatedAt: now,
 	}
 
-	return s.userStore.Create(admin)
+	err1 := s.userStore.Create(admin)
+	if err1 != nil {
+		if err1 == store.ErrEmailAlreadyExists {
+			return false,nil // email taken, but admin exists, so treat as success
+		}
+		return false,err1
+	}
+
+	return true,nil
 }

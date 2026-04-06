@@ -132,6 +132,13 @@ func (s *TransactionService) Update(id string, input UpdateTransactionInput) (*m
 		}
 		tx.Amount = input.Amount
 	}
+	if input.Amount == 0 && input.Type == "" &&
+		input.Category == "" && input.Date == "" &&
+		input.Description == "" {
+		return nil, utils.NewValidationError(
+			"at least one field must be provided for update",
+		)
+	}
 	if input.Type != "" {
 		if !utils.IsValidTransactionType(input.Type) {
 			return nil, utils.NewValidationError("type must be income or expense")

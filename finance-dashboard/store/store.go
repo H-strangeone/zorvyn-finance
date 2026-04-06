@@ -10,6 +10,7 @@ var (
 	ErrUserNotFound        = errors.New("user not found")
 	ErrTransactionNotFound = errors.New("transaction not found")
 	ErrRoleRequestNotFound = errors.New("role request not found")
+	ErrRequestAlreadyProcessed = errors.New("request already processed")
 )
 
 type UserStore interface {
@@ -38,4 +39,5 @@ type RoleRequestStore interface {
 	GetByUserID(userID string) []*models.RoleRequest
 	GetPendingByUserID(userID string) *models.RoleRequest
 	Update(req *models.RoleRequest) error
+	ProcessRequest(id string, status models.RequestStatus, reviewedBy string, reviewNote string) (*models.RoleRequest, error)
 }

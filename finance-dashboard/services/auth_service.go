@@ -100,9 +100,7 @@ func (s *AuthService) Login(input LoginInput) (*AuthResponse, *utils.AppError) {
 		return nil, utils.NewUnauthorizedError("invalid credentials")
 	}
 
-	if !user.IsActive {
-		return nil, utils.NewUnauthorizedError("account has been deactivated")
-	}
+	
 
 	err := bcrypt.CompareHashAndPassword(
 		[]byte(user.Password), []byte(input.Password),
@@ -110,7 +108,9 @@ func (s *AuthService) Login(input LoginInput) (*AuthResponse, *utils.AppError) {
 	if err != nil {
 		return nil, utils.NewUnauthorizedError("invalid credentials")
 	}
-
+	if !user.IsActive {
+		return nil, utils.NewUnauthorizedError("account has been deactivated")
+	}
 	token, appErr := generateToken(user)
 	if appErr != nil {
 		return nil, appErr
@@ -130,7 +130,7 @@ func generateToken(user *models.User) (string, *utils.AppError) {
 		"role":   string(user.Role),
 		"jti":    uuid.New().String(),
 		"iat":    now.Unix(),
-		"exp": now.Add(
+		"exp":    now.Add(
 			time.Duration(config.App.JWTExpiryHours) * time.Hour,
 		).Unix(),
 	}

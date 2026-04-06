@@ -5,7 +5,8 @@ import (
 	"finance-dashboard/store"
 	"finance-dashboard/utils"
 	"time"
-
+	"sync"
+	"errors"
 	"github.com/google/uuid"
 )
 
@@ -117,8 +118,14 @@ func (s *RoleRequestService) Process(id string, adminID string, input ProcessRol
 	if !utils.IsValidUUID(id) {
 		return nil, utils.NewValidationError("invalid request ID format")
 	}
-
-	req := s.roleRequestStore.GetByID(id)
+	status:= models.RequestStatus(models.StatusApproved)
+	if input.Action == "reject" {
+		status = models.RequestStatus(models.StatusRejected)
+	}
+	req, err := s.roleRequestStore.ProcessRequest(id, status, adminID, input.ReviewNote)
+	if err != nil {
+		return nil, utils.NewInternalError("failed to process role request")
+	}
 	if req == nil {
 		return nil, utils.NewNotFoundError("role request")
 	}
@@ -143,18 +150,68 @@ func (s *RoleRequestService) Process(id string, adminID string, input ProcessRol
 	req.ReviewedBy = adminID
 	req.ReviewNote = input.ReviewNote
 	req.UpdatedAt = now
+	if input.Action == "approve" {
+    user := s.userStore.GetByID(req.UserID)
+    if user == nil {
+        return nil, utils.NewNotFoundError("user")
+    }
+    user.Role = req.RequestedRole
+    user.UpdatedAt = time.Now().UTC()
+    if err := s.userStore.Update(user); err != nil {
+        return nil, utils.NewInternalError(
+            "approved but failed to update user role — contact administrator",
+        )
+    }
+}
 
 	if err := s.roleRequestStore.Update(req); err != nil {
 		return nil, utils.NewInternalError("failed to process role request")
 	}
 
-	if input.Action == "approve" {
-		user.Role = req.RequestedRole
-		user.UpdatedAt = now
-		if err := s.userStore.Update(user); err != nil {
-			return nil, utils.NewInternalError("role request approved but failed to update user role")
-		}
+	
+
+	return req, nil
+}
+type InMemoryRoleRequestStore struct {
+	mu       sync.RWMutex
+	requests map[string]*models.RoleRequest // key: request ID
+}
+var (
+	ErrEmailAlreadyExists  = errors.New("email already exists")
+	ErrUserNotFound        = errors.New("user not found")
+	ErrTransactionNotFound = errors.New("transaction not found")
+	ErrRoleRequestNotFound = errors.New("role request not found")
+	ErrRequestAlreadyProcessed = errors.New("request already processed")
+)
+func (s *InMemoryRoleRequestStore) ProcessRequest(
+	id string,
+	status models.RequestStatus,
+	reviewedBy string,
+	reviewNote string,
+) (*models.RoleRequest, error) {
+	// Single lock covers both the check AND the update
+	// This is what makes it atomic — no other goroutine can
+	// read or write between our status check and our update
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	req, exists := s.requests[id]
+	if !exists {
+		return nil, ErrRoleRequestNotFound
 	}
+
+	// Finite state machine enforcement under lock
+	// Both the check and the mutation happen while lock is held
+	// Two admins approving simultaneously — second one hits this and gets error
+	if req.Status != models.StatusPending {
+		return nil, ErrRequestAlreadyProcessed
+	}
+
+	req.Status = status
+	req.ReviewedBy = reviewedBy
+	req.ReviewNote = reviewNote
+	req.UpdatedAt = time.Now().UTC()
+	s.requests[id] = req
 
 	return req, nil
 }

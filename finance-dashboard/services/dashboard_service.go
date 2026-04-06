@@ -3,6 +3,7 @@ package services
 import (
 	"finance-dashboard/models"
 	"finance-dashboard/store"
+	"sort"
 )
 
 type DashboardService struct {
@@ -161,12 +162,9 @@ func (s *DashboardService) GetRecent(limit int) []*models.Transaction {
 	return txs
 }
 
+
 func sortTrendsByMonth(trends []MonthlyTrend) {
-	for i := 0; i < len(trends)-1; i++ {
-		for j := i + 1; j < len(trends); j++ {
-			if trends[j].Month > trends[i].Month {
-				trends[i], trends[j] = trends[j], trends[i]
-			}
-		}
-	}
+    sort.Slice(trends, func(i, j int) bool {
+        return trends[i].Month > trends[j].Month // descending
+    })
 }

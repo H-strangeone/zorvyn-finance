@@ -98,7 +98,7 @@ func (h *UserHandler) Update(c *gin.Context) {
 
 func (h *UserHandler) UpdateStatus(c *gin.Context) {
 	id := c.Param("id")
-
+	requestingAdminID := middleware.GetUserID(c)
 	if !utils.IsValidUUID(id) {
 		utils.SendError(c, utils.NewValidationError("invalid user ID format"))
 		return
@@ -115,7 +115,7 @@ func (h *UserHandler) UpdateStatus(c *gin.Context) {
 		return
 	}
 
-	user, appErr := h.userService.UpdateStatus(id, body.IsActive)
+	user, appErr := h.userService.UpdateStatus(id, requestingAdminID, body.IsActive)
 	if appErr != nil {
 		utils.SendError(c, appErr)
 		return

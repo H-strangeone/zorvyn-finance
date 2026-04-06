@@ -4,6 +4,7 @@ import (
 	"finance-dashboard/models"
 	"sync"
 	"time"
+	"sort"
 )
 
 type InMemoryUserStore struct {
@@ -58,6 +59,9 @@ func (s *InMemoryUserStore) GetAll() []*models.User {
 	for _, u := range s.users {
 		users = append(users, u)
 	}
+	sort.Slice(users, func(i, j int) bool {
+        return users[i].CreatedAt.Before(users[j].CreatedAt)
+    })
 	return users
 }
 
@@ -94,6 +98,7 @@ func (s *InMemoryUserStore) UpdateStatus(id string, isActive bool) error {
 
 	user.IsActive = isActive
 	user.UpdatedAt = time.Now().UTC()
+	s.users[id] = user
 	return nil
 }
 

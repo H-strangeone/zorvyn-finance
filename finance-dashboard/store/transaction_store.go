@@ -116,18 +116,22 @@ func (s *InMemoryTransactionStore) GetAll(filter models.TransactionFilter) ([]*m
 	return filtered[offset:end], total
 }
 func (s *InMemoryTransactionStore) Update(tx *models.Transaction) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+    s.mu.Lock()
+    defer s.mu.Unlock()
 
-	if _, exists := s.transactions[tx.ID]; !exists {
-		return ErrTransactionNotFound
-	}
+    existing, exists := s.transactions[tx.ID]
+    if !exists {
+        return ErrTransactionNotFound
+    }
+    // Defense in depth — store should not update deleted records
+    if existing.IsDeleted {
+        return ErrTransactionNotFound
+    }
 
-	tx.UpdatedAt = time.Now().UTC()
-	s.transactions[tx.ID] = tx
-	return nil
+    tx.UpdatedAt = time.Now().UTC()
+    s.transactions[tx.ID] = tx
+    return nil
 }
-
 func (s *InMemoryTransactionStore) SoftDelete(id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -176,7 +180,7 @@ func (s *InMemoryTransactionStore) FetchAll() []*models.Transaction {
     s.mu.RLock()
     defer s.mu.RUnlock()
 
-    var result []*models.Transaction
+    result := make([]*models.Transaction, 0)
     for _, tx := range s.transactions {
         if !tx.IsDeleted {
             result = append(result, tx)

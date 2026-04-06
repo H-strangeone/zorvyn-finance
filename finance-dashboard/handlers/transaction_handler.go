@@ -22,9 +22,6 @@ func NewTransactionHandler(transactionService *services.TransactionService) *Tra
 
 func (h *TransactionHandler) GetAll(c *gin.Context) {
 
-
-
-
 	filter := models.TransactionFilter{}
 
 	filter.Type = c.Query("type")
@@ -32,8 +29,8 @@ func (h *TransactionHandler) GetAll(c *gin.Context) {
 	filter.Search = c.Query("search")
 	filter.Sort = c.Query("sort")
 
-
-	if fromStr := c.Query("from"); fromStr != "" {
+	fromStr := c.Query("from")
+	if fromStr != "" {
 		if t, err := time.Parse("2006-01-02", fromStr); err == nil {
 			filter.From = t.UTC()
 		} else {
@@ -41,7 +38,8 @@ func (h *TransactionHandler) GetAll(c *gin.Context) {
 			return
 		}
 	}
-	if toStr := c.Query("to"); toStr != "" {
+	toStr := c.Query("to")
+	if toStr != "" {
 		if t, err := time.Parse("2006-01-02", toStr); err == nil {
 			filter.To = t.UTC()
 		} else {
@@ -49,10 +47,12 @@ func (h *TransactionHandler) GetAll(c *gin.Context) {
 			return
 		}
 	}
-
-
-
-
+	if fromStr != "" && toStr != "" {
+		if filter.From.After(filter.To) {
+			utils.SendError(c, utils.NewValidationError("from date must be before to date"))
+			return
+		}
+	}
 
 	if limitStr := c.Query("limit"); limitStr != "" {
 		if limit, err := strconv.Atoi(limitStr); err == nil {
@@ -146,9 +146,6 @@ func (h *TransactionHandler) Delete(c *gin.Context) {
 		utils.SendError(c, appErr)
 		return
 	}
-
-
-
 
 	utils.SendSuccess(c, http.StatusOK, "transaction deleted successfully", nil)
 }
